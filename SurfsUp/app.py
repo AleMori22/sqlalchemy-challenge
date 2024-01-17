@@ -2,16 +2,14 @@
 
 from matplotlib import style
 style.use('fivethirtyeight')
-import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import numpy as np
-import pandas as pd
 import datetime as dt
 import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func , inspect
-from flask import Flask, jsonify
+from flask import Flask, jsonify , abort
 
 #################################################
 # Database Setup
@@ -53,10 +51,15 @@ def homepage():
         f"/api/v1.0/precipitation<br/>"
         f"/api/v1.0/stations<br/>"
         f"/api/v1.0/tobs<br/>"
-        f"/api/v1.0/start<br/>"
-        f"/api/v1.0/start/end"
+        f"/api/v1.0/start/<start><br/>"
+        f"/api/v1.0/st_en/<start>/<end>"
 
     )
+
+
+#################################################
+# Flask Routes
+#################################################
 
 @app.route("/api/v1.0/precipitation")
 def precipitation():
@@ -68,46 +71,127 @@ def precipitation():
     year_data = session.query(Measurement.date, Measurement.prcp).filter(
         Measurement.date <= last_date,Measurement.date >= first_date).all()
     
-    return(year_data)
+    for_data = {date: prcp for date, prcp in year_data}
+    
+    return(for_data)
 
 
 
 @app.route("/api/v1.0/stations")
 def stations():
     
-    st = session.query(Measurement.station).group_by(Measurement.station).all()
+    st = session.query(
+         Measurement.station).group_by(
+              Measurement.station
+              ).all()
     
-    return jsonify(st)
+    for_st = [station for (station,) in st]
+    
+    return jsonify(for_st)
 
 
 
 @app.route("/api/v1.0/tobs")
-def precipitation():
+def temperature():
     
     last_date = dt.datetime(2017,8,23)
     
     first_date = dt.datetime(last_date.year - 1, last_date.month, last_date.day)
     
-    tods = session.query(Measurement.date, Measurement.prcp).filter(
-        Measurement.date <= last_date,Measurement.date >= first_date).all()
+    M_A_S = session.query(
+         Measurement.station).group_by(
+             Measurement.station).order_by(
+                  func.count(Measurement.station).desc()
+                  ).first()
+
+    tods = session.query(
+         Measurement.date,Measurement.tobs).filter(
+              Measurement.station == M_A_S).filter(
+                   Measurement.date <= last_date , Measurement.date >= first_date
+                   ).all()
     
-    return jsonify(tods)
+    For_tods = [{"date": date, "temperature": tobs} for date, tobs in tods]
+
+    return jsonify(For_tods)
 
 
 
-@app.route("/api/v1.0/start")
-def start():
+@app.route("/api/v1.0/start/<start>")
+def start(start):
+
+    try:
+        
+        start_date = dt.datetime.strptime(start, '%Y-%m-%d')  
     
+    except ValueError:
+        
+        abort(400, description="Invalid date format. Please use YYYY-MM-DD format.")
     
-    return()
+    start_date = dt.datetime(start)
 
-@app.route("/api/v1.0/start/end")
-def st_en():
-    return()
+    if start_date > dt.datetime(2017, 8, 23) or start_date < dt.datetime(2010, 1, 1):
+        
+        abort(400, description="Date out of range. Please provide a date between 2010-01-01 and 2017-08-23.")
+
+    MX = session.query(
+             Measurement.tobs).filter(
+                  Measurement.date >= start_date).order_by(
+                       Measurement.tobs.desc()[0]
+                       ).first()
+        
+    MN = session.query(
+             Measurement.tobs).filter(
+                  Measurement.date >= start_date).order_by(
+                       Measurement.tobs.asc()[0]
+                       ).first()
+        
+    AVG = session.query(
+             func.avg(Measurement.tobs)).filter(
+                  Measurement.date >= start_date)
+            
+    return jsonify({"max_temp": float(MX), "min_temp": float(MN), "avg_temp": float(AVG)})
 
 
 
+@app.route("/api/v1.0/st_en/<start>/<end>")
+def st_en(start , end):
 
-#################################################
-# Flask Routes
-#################################################
+
+    try:
+        
+        start_date = dt.datetime.strptime(start, '%Y-%m-%d')  
+        
+        last_date = dt.datetime.strptime(end, '%Y-%m-%d') 
+    
+    except ValueError:
+        abort(400, description="Invalid date format. Please use YYYY-MM-DD format.")
+
+    if start_date > last_date:
+        abort(400, description="Start date cannot be after end date.")
+
+    if last_date > dt.datetime(2017, 8, 23) or start_date < dt.datetime(2010, 1, 1):
+        abort(400, description="Dates out of range. Please provide dates between 2010-01-01 and 2017-08-23.")
+
+    start_date = start
+    
+    last_date = end
+
+    MX = session.query(
+             Measurement.tobs).filter(
+                  Measurement.date <= last_date , Measurement.date >= start_date).order_by(
+                       Measurement.tobs.desc()[0]
+                       ).first()
+        
+    MN = session.query(
+             Measurement.tobs).filter(
+                  Measurement.date <= last_date , Measurement.date >= start_date).order_by(
+                       Measurement.tobs.asc()[0]
+                       ).first()
+        
+    AVG = session.query(
+             func.avg(Measurement.tobs)).filter(
+                  Measurement.date <= last_date , Measurement.date >= start_date
+                  ).scalar()
+            
+    return jsonify({"max_temp": float(MX), "min_temp": float(MN), "avg_temp": float(AVG)})
+
