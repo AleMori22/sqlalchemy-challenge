@@ -64,6 +64,8 @@ def homepage():
 @app.route("/api/v1.0/precipitation")
 def precipitation():
     
+    session = Session(engine)
+
     last_date = dt.datetime(2017,8,23)
     
     first_date = dt.datetime(last_date.year - 1, last_date.month, last_date.day)
@@ -73,6 +75,8 @@ def precipitation():
     
     for_data = {date: prcp for date, prcp in year_data}
     
+    session.close()
+
     return(for_data)
 
 
@@ -80,6 +84,8 @@ def precipitation():
 @app.route("/api/v1.0/stations")
 def stations():
     
+    session = Session(engine)
+
     st = session.query(
          Measurement.station).group_by(
               Measurement.station
@@ -87,12 +93,16 @@ def stations():
     
     for_st = [station for (station,) in st]
     
+    session.close()
+
     return jsonify(for_st)
 
 
 
 @app.route("/api/v1.0/tobs")
 def temperature():
+
+    session = Session(engine)
     
     last_date = dt.datetime(2017,8,23)
     
@@ -112,12 +122,16 @@ def temperature():
     
     For_tods = [{"date": date, "temperature": tobs} for date, tobs in tods]
 
+    session.close()
+    
     return jsonify(For_tods)
 
 
 
 @app.route("/api/v1.0/start/<start>")
 def start(start):
+
+    session = Session(engine)
 
     try:
         
@@ -149,6 +163,8 @@ def start(start):
              func.avg(Measurement.tobs)).filter(
                   Measurement.date >= start_date)
             
+    session.close()
+    
     return jsonify({"max_temp": float(MX), "min_temp": float(MN), "avg_temp": float(AVG)})
 
 
@@ -156,6 +172,7 @@ def start(start):
 @app.route("/api/v1.0/st_en/<start>/<end>")
 def st_en(start , end):
 
+    session = Session(engine)
 
     try:
         
@@ -193,5 +210,9 @@ def st_en(start , end):
                   Measurement.date <= last_date , Measurement.date >= start_date
                   ).scalar()
             
+    session.close()
+    
     return jsonify({"max_temp": float(MX), "min_temp": float(MN), "avg_temp": float(AVG)})
 
+if __name__ == "__main__":
+    app.run(debug=True)
