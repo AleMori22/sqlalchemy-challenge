@@ -104,9 +104,7 @@ def temperature():
 
     session = Session(engine)
     
-    last_date = dt.datetime(2017,8,23)
-    
-    first_date = dt.datetime(last_date.year - 1, last_date.month, last_date.day)
+    first_date = dt.datetime(2016, 8, 23)
     
     M_A_S = session.query(
          Measurement.station).group_by(
@@ -116,52 +114,41 @@ def temperature():
 
     tods = session.query(
          Measurement.date,Measurement.tobs).filter(
-              Measurement.station == M_A_S).filter(
-                   Measurement.date <= last_date , Measurement.date >= first_date
+              Measurement.station == M_A_S[0]).filter(
+                Measurement.date >= first_date
                    ).all()
     
     For_tods = [{"date": date, "temperature": tobs} for date, tobs in tods]
 
     session.close()
-    
+
     return jsonify(For_tods)
 
 
 
 @app.route("/api/v1.0/start/<start>")
 def start(start):
-
     session = Session(engine)
 
     try:
-        
         start_date = dt.datetime.strptime(start, '%Y-%m-%d')  
-    
     except ValueError:
-        
         abort(400, description="Invalid date format. Please use YYYY-MM-DD format.")
-    
-    start_date = dt.datetime(start)
 
     if start_date > dt.datetime(2017, 8, 23) or start_date < dt.datetime(2010, 1, 1):
-        
         abort(400, description="Date out of range. Please provide a date between 2010-01-01 and 2017-08-23.")
 
     MX = session.query(
-             Measurement.tobs).filter(
-                  Measurement.date >= start_date).order_by(
-                       Measurement.tobs.desc()[0]
-                       ).first()
+             func.max(Measurement.tobs)).filter(
+                  Measurement.date >= start_date).scalar()
         
     MN = session.query(
-             Measurement.tobs).filter(
-                  Measurement.date >= start_date).order_by(
-                       Measurement.tobs.asc()[0]
-                       ).first()
+             func.min(Measurement.tobs)).filter(
+                  Measurement.date >= start_date).scalar()
         
     AVG = session.query(
              func.avg(Measurement.tobs)).filter(
-                  Measurement.date >= start_date)
+                  Measurement.date >= start_date).scalar()
             
     session.close()
     
@@ -189,26 +176,18 @@ def st_en(start , end):
     if last_date > dt.datetime(2017, 8, 23) or start_date < dt.datetime(2010, 1, 1):
         abort(400, description="Dates out of range. Please provide dates between 2010-01-01 and 2017-08-23.")
 
-    start_date = start
-    
-    last_date = end
 
     MX = session.query(
-             Measurement.tobs).filter(
-                  Measurement.date <= last_date , Measurement.date >= start_date).order_by(
-                       Measurement.tobs.desc()[0]
-                       ).first()
+             func.max(Measurement.tobs)).filter(
+                  Measurement.date <= last_date , Measurement.date >= start_date).scalar()
         
     MN = session.query(
-             Measurement.tobs).filter(
-                  Measurement.date <= last_date , Measurement.date >= start_date).order_by(
-                       Measurement.tobs.asc()[0]
-                       ).first()
+             func.min(Measurement.tobs)).filter(
+                  Measurement.date <= last_date , Measurement.date >= start_date).scalar()
         
     AVG = session.query(
              func.avg(Measurement.tobs)).filter(
-                  Measurement.date <= last_date , Measurement.date >= start_date
-                  ).scalar()
+                  Measurement.date <= last_date , Measurement.date >= start_date).scalar()
             
     session.close()
     
