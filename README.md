@@ -8,7 +8,7 @@ In the directory called **SurfUp** you'll find:
 
 3. Lastly the **app.py** file that will run the query required and will display them into different routes.
 
-All the code was made by me with the help of the class material. Also by looking at the resources and stack overflow I was able to script the following error message returned in case the date
+All the code was made by me with the help of the class material. Also by looking at the resources and stack overflow I was able to script the following error message returned in case the date in imput as start or end date is not correct or out of range.
 
 ```
 try:
